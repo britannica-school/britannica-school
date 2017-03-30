@@ -1,0 +1,229 @@
+
+div.jGrowl {
+	z-index: 			9999;
+	color: 				#fff;
+	font-size: 			12px;
+	width: 50%;
+}
+
+/** Special IE6 Style Positioning **/
+div.ie6 {
+	position: 			absolute;
+}
+
+div.ie6.top-right {
+	right: 				auto;
+	bottom: 			auto;
+	left: 				expression( ( 0 - jGrowl.offsetWidth + ( document.documentElement.clientWidth ? document.documentElement.clientWidth : document.body.clientWidth ) + ( ignoreMe2 = document.documentElement.scrollLeft ? document.documentElement.scrollLeft : document.body.scrollLeft ) ) + 'px' );
+	top: 				expression( ( 0 + ( ignoreMe = document.documentElement.scrollTop ? document.documentElement.scrollTop : document.body.scrollTop ) ) + 'px' );
+}
+
+div.ie6.top-left {
+	left: 				expression( ( 0 + ( ignoreMe2 = document.documentElement.scrollLeft ? document.documentElement.scrollLeft : document.body.scrollLeft ) ) + 'px' );
+	top: 				expression( ( 0 + ( ignoreMe = document.documentElement.scrollTop ? document.documentElement.scrollTop : document.body.scrollTop ) ) + 'px' );
+}
+
+div.ie6.bottom-right {
+	left: 				expression( ( 0 - jGrowl.offsetWidth + ( document.documentElement.clientWidth ? document.documentElement.clientWidth : document.body.clientWidth ) + ( ignoreMe2 = document.documentElement.scrollLeft ? document.documentElement.scrollLeft : document.body.scrollLeft ) ) + 'px' );
+	top: 				expression( ( 0 - jGrowl.offsetHeight + ( document.documentElement.clientHeight ? document.documentElement.clientHeight : document.body.clientHeight ) + ( ignoreMe = document.documentElement.scrollTop ? document.documentElement.scrollTop : document.body.scrollTop ) ) + 'px' );
+}
+
+div.ie6.bottom-left {
+	left: 				expression( ( 0 + ( ignoreMe2 = document.documentElement.scrollLeft ? document.documentElement.scrollLeft : document.body.scrollLeft ) ) + 'px' );
+	top: 				expression( ( 0 - jGrowl.offsetHeight + ( document.documentElement.clientHeight ? document.documentElement.clientHeight : document.body.clientHeight ) + ( ignoreMe = document.documentElement.scrollTop ? document.documentElement.scrollTop : document.body.scrollTop ) ) + 'px' );
+}
+
+div.ie6.center {
+	left: 				expression( ( 0 + ( ignoreMe2 = document.documentElement.scrollLeft ? document.documentElement.scrollLeft : document.body.scrollLeft ) ) + 'px' );
+	top: 				expression( ( 0 + ( ignoreMe = document.documentElement.scrollTop ? document.documentElement.scrollTop : document.body.scrollTop ) ) + 'px' );
+	width: 				100%;
+}
+
+/** Normal Style Positions **/
+div.jGrowl {
+	position:			absolute;
+}
+
+body > div.jGrowl {
+	position:			fixed;
+}
+
+div.jGrowl.top-left {
+	left: 				0px;
+	top: 				0px;
+}
+
+div.jGrowl.top-right {
+	right: 				0px;
+	top: 				0px;
+}
+
+div.jGrowl.bottom-left {
+	left: 				0px;
+	bottom:				0px;
+}
+
+div.jGrowl.bottom-right {
+	right: 				0px;
+	bottom: 			0px;
+}
+
+div.jGrowl.center {
+	top: 				0px;
+	width: 				50%;
+	left: 				25%;
+}
+
+/** Cross Browser Styling **/
+div.center div.jGrowl-notification, div.center div.jGrowl-closer {
+	margin-left: 		auto;
+	margin-right: 		auto;
+}
+
+div.jGrowl div.jGrowl-notification, div.jGrowl div.jGrowl-closer {
+    background-clip: padding-box;
+    border-radius: 8px 8px 8px 8px;
+    -webkit-box-shadow: 0px 5px 5px 0px rgba(0,0,0,0.5);
+    -moz-box-shadow: 0px 5px 5px 0px rgba(0,0,0,0.5);
+    box-shadow: 0px 5px 5px 0px rgba(0,0,0,0.5);
+    margin: 0.5em 0;
+    padding: 0.75em 1em;
+	zoom: 					1;
+	text-align: 			left;
+	display: 				none;
+}
+
+div.jGrowl div.jGrowl-notification-with-tabs, div.jGrowl div.jGrowl-closer-with-tabs {
+    border-radius: 0px 8px 8px 8px;
+}
+
+div.jGrowl div.jGrowl-notification {
+	min-height: 			40px;
+}
+
+div.jGrowl div.jGrowl-notification,
+div.jGrowl div.jGrowl-closer {
+	border:					0px;
+	margin: 				1em;
+}
+
+div.jGrowl div.jGrowl-notification div.jGrowl-header {
+	font-weight: 			bold;
+	font-size:				.85em;
+}
+
+div.jGrowl div.jGrowl-notification div.jGrowl-close {
+    z-index:				99;
+    background: url("/resources/img/fancybox/fancybox.png") repeat scroll -40px 0 transparent;
+    height: 30px;
+    position: relative;
+    right: -22px;
+    top: -18px;
+    width: 30px;
+    cursor: pointer;
+    float: right;
+}
+
+div.jGrowl div.jGrowl-closer {
+	padding-top: 			4px;
+	padding-bottom: 		4px;
+	cursor: 				pointer;
+	font-size:				.9em;
+	font-weight: 			bold;
+	text-align: 			center;
+}
+
+/** Hide jGrowl when printing **/
+@media print {
+	div.jGrowl {
+		display: 			none;
+	}
+}
+
+div#growlbox-dictionary-footer {
+	width: 100%;
+	height: 40px;
+}
+
+div#growlbox-dictionary-more {
+	float: left;
+}
+
+div#growlbox-dictionary-more a {
+	padding-top: 9px;
+	font-weight: bold;
+}
+
+div#growlbox-dictionary-credit {
+	text-align: right;
+	font-style: italic;
+	color: #999;
+}
+
+div#growlbox-dictionary-credit img {
+	padding-left: 1em;
+}
+
+div#growlbox-dictionary-header h4 {
+	display: inline;
+    padding-right: 1em;
+}
+
+span.growlbox-dictionary-function {
+   font-style: italic;
+   padding-right: 1em;
+}
+
+span.growlbox-dictionary-pronunciation {
+    font-weight: normal;
+    padding-right: 1em;
+}
+
+div#growlbox-dictionary-switcher {
+    position: absolute;
+    top: -20px;
+    left: 12px;
+    z-index: -1;
+}
+
+div#growlbox-dictionary-switcher > button.active, div#growlbox-dictionary-switcher > button.active:hover {
+	background: linear-gradient(to bottom, #e3d57b, #FBEC88, #FBEC88);
+        color: #333333;
+        cursor: auto;
+}
+
+div#growlbox-dictionary-switcher > button {
+    font-size: 14px;
+    height: 33px;
+    line-height: 14px;
+    border: 0px;
+    border-radius: 4px 4px 0 0;
+    margin-right: 5px;
+    background: linear-gradient(to bottom, #006DCA, #00437D);
+    box-shadow: 0px 5px 5px 0px rgba(0,0,0,0.5);
+    color: #FFFFFF;
+}
+
+div#growlbox-dictionary-switcher > button:hover {
+    background: #005EB0;
+}
+
+button#growlbox-dictionary-switcher-english {
+}
+
+button#growlbox-dictionary-switcher-spanish, button#growlbox-dictionary-switcher-arabic {
+}
+
+div#growlbox-dictionary-switcher > button#growlbox-dictionary-switcher-arabic {
+	font-size: 18px;
+	font-family: tahoma, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+.jGrowl .jGrowl-message .ar {
+	font-size: 18px;
+	direction: rtl;
+	font-family: tahoma, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+	text-align: right;
+	display: block;
+
+}

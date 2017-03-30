@@ -1,0 +1,5 @@
+if ((document.documentMode == 7) || (navigator.userAgent.indexOf('MSIE 7') > -1)) {
+    if (!sessionStorage.getItem('IECompatibilityModePageShown')) {
+        window.location = '/resources/page/turn-off-ie-compatibility-mode.html';
+    }
+}

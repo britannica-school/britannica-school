@@ -1,0 +1,2104 @@
+// IMPORTANT: The logic in this file is used on the client side. 
+// However CONTEXT_APP is used in both places, therefore files (this and individual.js) are combined during compilation.     
+
+var CONTEXT_APP = {
+	DEFAULT : {value: 0, name: "default"}, 
+	ILT : {value: 1, name: "ind_login_tool"},
+	MIC : {value: 2, name: "mic"},
+	PATHWAYS : {value: 3, name: "pathways"},
+	B2 : {value: 4, name: "b2"},
+    PATHWAYS2 : {value: 5, name: "pathways2"},
+    LIBRARY : {value: 6, name: "library"},
+    IQ2 : {value: 7, name: "iq2"},
+    PACKS : {value: 8, name: "packs"},
+    ACADEMIC : {value: 9, name: "academic"},
+
+	getEnumByName : function(contextType){
+		for(var key in this){
+			if(this[key].name == contextType){
+				return this[key];
+			}
+		}
+	}
+};
+
+CONTEXT_APP.doSmth = function(contextType){
+	for(var key in this){
+		if(this[key].name == contextType){
+			return this[key];
+		}
+	}
+};
+
+function endsWith(str, suffix) {
+    return str.indexOf(suffix, str.length - suffix.length) !== -1;
+}
+
+var browserHost = window.location.host.toLowerCase(); // example: quest.dev.eb.com.ezproxy.ebqa.edu:2048
+var ebSitePrefixes = ['school', 'library', 'academic', 'packs', 'login', 'quest', 'escolar', 'pathways'];
+var ebSiteEndings = ['eb.com.au', 'eb.co.uk', 'eb.com', 'ebonline.com', 'ebonline.co.nz', 'ebonline.in', 'britannica.com.br']; // order is important: eb.com.au should go before eb.com
+
+individual = function() {
+	
+	var _background;
+    var _container;
+    var _box;
+    var _contextApp = CONTEXT_APP.DEFAULT;
+    var _cssPath = '';
+    var _protocol = 'https:';
+    // of running locally, ignore SSL
+    if(window.location.hostname.indexOf('.local.') > -1) {
+        _protocol = 'http:';
+    }
+    
+    //for now used only for B2 / Library
+    var _accountId = '';
+    var _landingPageUrl = '';
+    var _signUp = '';
+    var _parentLocale;
+    var _showNewUI = false;
+
+    //for proxies
+    var _proxyHost;
+
+    // ----------------------------------------------------------------------------------------------------------------
+    // --- Create login box elements in the DOM
+    // ----------------------------------------------------------------------------------------------------------------
+
+    var _init = function() {
+
+        // --- create html
+        var e = [];
+
+        // header
+
+
+        e.push( '<div id="individual-background"></div>' );
+        e.push( '<table height="100%" width="100%" id="individual-login-box">' );
+        e.push( '<tr><td width="100%" height="100%" align="center" valign="middle">' );
+        e.push( '<div id="ilb-container">' );
+        e.push( '<div id="ilb-close"></div>' );
+        e.push( '</div>' );
+        e.push( '</td></tr></table>' );
+
+        $('body').append($(e.join('')));
+
+        // --- cache some elements
+
+        _background = $('#individual-background');
+        _container = $('#ilb-container');
+        _box = $('#individual-login-box');
+
+        // click on buttons
+        $('#ilb-close').click( _close );
+
+    };
+
+    var _init2 = function() {
+
+        // --- create html
+        var e = [];
+
+        // header
+
+        e.push( '<div id="individual-background"></div>' );
+        e.push( '<table height="100%" width="100%" id="individual-login-box" class="individual-login-box-v2">' );
+        e.push( '<tr><td width="100%" height="100%" align="center" valign="middle">' );
+        e.push( '<div id="ilw-container">' );
+        e.push( '<div id="ilw-close">x</div>' );
+        e.push( '</div>' );
+        e.push( '</td></tr></table>' );
+
+        $('body').append($(e.join('')));
+
+        // --- cache some elements
+
+        _background = $('#individual-background');
+        _container = $('#ilw-container');
+        _box = $('#individual-login-box');
+
+        // click on buttons
+        $('#ilw-close').click( _close2 );
+
+    };
+
+    // ----------------------------------------------------------------------------------------------------------------
+    // --- Show / Close the box
+    // ----------------------------------------------------------------------------------------------------------------
+
+
+
+    var _showLoginBox = function() {
+        if(_showNewUI){
+            $('#ilw-close').hide();
+        }else{
+            $('#ilb-close').hide();
+        }
+
+        try {
+            if (!_background) {
+                if(_showNewUI){
+                    _init2();
+                }else{
+                    _init();
+                }
+            }
+            _background.show();
+
+            if(_showNewUI){
+                $('html,body').addClass('ilw-html');
+            }else{
+                $('html,body').addClass('ilb-html');
+            }
+            _box.show();
+
+            var _paramsArr = {};
+            var _params = "";
+            if(_contextApp && _contextApp !== CONTEXT_APP.DEFAULT){
+                _paramsArr["contextApp"] = _contextApp.name;
+            }
+            if(_cssPath){
+                _paramsArr["cssPath"] = _cssPath;
+            }
+            if(_accountId){
+                _paramsArr["accountId"] = _accountId;
+            }
+            if(_landingPageUrl){
+                _paramsArr["landingPageUrl"] = _landingPageUrl;
+            }
+            if(_signUp){
+                _paramsArr["signUp"] = _signUp;
+            }
+            if(_parentLocale){
+                _paramsArr["contextLocale"] = _parentLocale;
+            }
+
+            var _delimiter = "?";
+            for(var key in _paramsArr){
+                _params = _params + _delimiter + key + "=" + encodeURIComponent(_paramsArr[key]);
+                _delimiter = "&";
+            }
+
+            var loginHost = 'individual.eb.com';
+            if(_isBehindProxy()) {
+                loginHost = _getProxyPrefix(window.location.host) + loginHost + _getProxyAppendix(window.location.host);
+                _protocol = "http:";
+            }
+
+            //this.style.height = this.contentWindow.document.body.scrollHeight;
+            if(_showNewUI){
+                _container.append('<iframe id="ilw-iframe-loginbox" onload="this.style.visibility = \'visible\';"  ' +
+                    'src="' + _protocol + '//' + loginHost + '/loginbox2' + _params + '" frameborder="0" allowTransparency="true"></iframe>');
+                $('#ilw-iframe-loginbox').focus();
+                setTimeout( function() {$('#ilw-close').fadeIn('fast');}, 500 );
+            }else{
+                _container.append('<iframe id="ilb-iframe-loginbox" onload="this.style.visibility = \'visible\';"  ' +
+                    'src="' + _protocol + '//' + loginHost + '/loginbox' + _params + '" frameborder="0" allowTransparency="true"></iframe>');
+                $('#ilb-iframe-loginbox').focus();
+                setTimeout( function() {$('#ilb-close').fadeIn('fast');}, 500 );
+            }
+        } catch (ex){
+            // do nothing
+        } finally {
+            // this is needed for IE8!!! don't remove!!!
+            if(_showNewUI){
+                $('#ilw-close').show();
+            }else{
+                $('#ilb-close').show();
+            }
+        }
+
+    };
+
+    var _isBehindProxy = function() {
+        var result = true;
+        ebSiteEndings.forEach(function(element){
+            if(endsWith(browserHost, element)){
+                result = false;
+            }
+        });
+
+        return result;
+    };
+
+    var _getProxyAppendix = function(browserHost) {
+        browserHost = browserHost.toLowerCase();
+        var result = '';
+        ebSiteEndings.forEach(function(element) {
+            if(browserHost.indexOf(element) >= 0) {
+                result = browserHost.substring(browserHost.indexOf(element) + element.length);
+                return false; // this breaks foreach
+            }
+        });
+        return result;
+    }
+
+    var _getProxyPrefix = function(browserHost) {
+        browserHost = browserHost.toLowerCase();
+        var result = '';
+        ebSitePrefixes.forEach(function(element) {
+            if(browserHost.indexOf(element + '.') > 0) {
+                result = browserHost.substring(0, browserHost.indexOf(element));
+                return false; // this breaks foreach
+            }
+        });
+        return result;
+    }
+
+    var _close = function() {
+        _box.fadeOut('fast', function() {
+            _background.hide();
+            $('html,body').removeClass('ilb-html');
+
+            if($('#ilw-close')){
+                $('html,body').removeClass('ilw-html');
+                $('#ilw-close').hide();
+            }
+
+            _container.find('iframe').remove();
+            $('#ilb-close').hide();
+
+        } );
+    };
+
+    var _close2 = function() {
+        _box.fadeOut('fast', function() {
+            _background.hide();
+
+            if($('#ilw-close')){
+                $('#ilw-close').hide();
+            }
+
+            _container.find('iframe').remove();
+
+        } );
+    };
+
+    var _showAppLoginBox = function(contextString, accountId, landingPageUrl, signUp, proxyHost, locale){
+        _contextApp = CONTEXT_APP.getEnumByName(contextString);
+        _accountId = accountId;
+
+        _signUp = signUp ? signUp : '';
+        _landingPageUrl = landingPageUrl ? landingPageUrl : '';
+        _proxyHost = proxyHost ? proxyHost : _proxyHost;
+        _parentLocale = locale ? locale : _parentLocale;
+
+        _showLoginBox();
+    };
+
+    var _assertEqual = function(expected, actual) {
+        var msg = 'RESULT: ';
+        if(expected == actual) {
+            msg += 'true';
+        } else {
+            msg += 'false (expected: ' + expected + ', actual: ' + actual + ')';
+        }
+        console.log(msg);
+    };
+
+    // ----------------------------------------------------------------------------------------------------------------
+    // --- Public Methods
+    // ----------------------------------------------------------------------------------------------------------------
+
+    return {
+
+        showLoginBox: function() {
+            _showNewUI = false;
+            _showLoginBox();
+        },
+        showNewLoginBox: function() {
+            _showNewUI = true;
+            _showLoginBox();
+        },
+        showLoginBoxForLoginTool: function() {
+    		_contextApp = CONTEXT_APP.ILT;
+            _showLoginBox();
+        },
+        // Use CONTEXT_APP values
+        showLoginBoxGeneric: function(contextString) {
+        	_contextApp = CONTEXT_APP.getEnumByName(contextString);
+            _showLoginBox();
+        },    
+	    setCssPath: function(cssPath) {
+	        _cssPath = cssPath;
+	    },
+        showAppLoginBox: _showAppLoginBox,
+        showIq2LoginBox: function(accountId, landingPageUrl, signUp, locale){
+            //_showNewUI = true;
+            _showAppLoginBox("iq2", accountId, landingPageUrl, signUp, null, locale);
+        },
+        showB2LoginBox: function(accountId, landingPageUrl, signUp, locale){
+            _showAppLoginBox("b2", accountId, landingPageUrl, signUp, null, locale);
+        },
+        showLibraryLoginBox: function(accountId, landingPageUrl, signUp, locale){
+            _showAppLoginBox("library", accountId, landingPageUrl, signUp, null, locale);
+        },
+        showAcademicLoginBox: function(accountId, landingPageUrl, signUp, locale){
+            _showAppLoginBox("academic", accountId, landingPageUrl, signUp, null, locale);
+        },
+        showPacksLoginBox: function(accountId, landingPageUrl, signUp, locale){
+            _showNewUI = true;
+            _showAppLoginBox("packs", accountId, landingPageUrl, signUp, null, locale);
+        },
+
+        // to run tests, go to console, run : individual.test()
+        test: function() {
+            _assertEqual('0-', _getProxyPrefix('0-school.eb.com'));
+            _assertEqual('', _getProxyPrefix('school.qa.britannica.com.br'));
+            _assertEqual('.someproxy.edu', _getProxyAppendix('school.britannica.com.br.someproxy.edu'));
+        }
+    };
+}();
+
+
+//--------------------------------------------------------------------------------------------------------------------
+//Loads the localized messages from the server
+//and inserts the login box in the dom when the document is loaded
+//--------------------------------------------------------------------------------------------------------------------
+
+$(document).ready( function() {
+    var today = new Date();
+    var _day = today.getDate();
+    var _month = today.getMonth() + 1;
+    var _year = today.getFullYear();
+    var _formattedToday = _month + '-' + _day + '-' + _year;
+	if (!individual.cssLoaded) {
+	     $('<link />', {
+	         rel: 'stylesheet',
+	         type: 'text/css',
+	         href: window.location.protocol + '//individual.eb.com/static/resources/css/min-individual-login-webapp.css?v=' + _formattedToday
+	     }).appendTo('head');
+	}
+});
+// --------------------------------------------------------------------------------------------------------------------
+// individual login box
+// --------------------------------------------------------------------------------------------------------------------
+
+
+individual.loginbox2 = function() {
+
+    var _box;
+    //var _errorMsg;
+    var _loginForm;
+
+    // ----------------------------------------------------------------------------------------------------------------
+    // --- Create login box elements in the DOM
+    // ----------------------------------------------------------------------------------------------------------------
+
+    var _init = function() {
+
+        // --- cache some elements
+
+        _box = $('#ilw-iframe-content');
+        //_errorMsg = $('#ilw-error-msg');
+
+        // init forms
+        var _submitUrl = '/login/in';
+
+        _loginForm = new individual.form2($('#ilw-content-login'), {
+            onSubmit: _submitLogin,
+            submitUrl: _submitUrl
+        });
+
+        _box.fadeIn('fast', function() { $('#ilw-username').focus(); }) ;
+    };
+
+    // ----------------------------------------------------------------------------------------------------------------
+    // submit login form
+    // ----------------------------------------------------------------------------------------------------------------
+
+    var _submitLogin = function (r) {
+        if(typeof(r) == "undefined" || typeof(r.response) == 'undefined') {
+            r = null;
+        }
+        //utils.showAlertBanner(r === null ? individual.messages.serverError : ( r.response === false ? individual.messages['login.error.unknownUser'] : null ), false);
+        if( r === null ){
+            utils.showAlertBanner(individual.messages.serverError, false);
+        }else if( r.response === false ){
+            utils.showValidationError( $('#ilw-username') , individual.messages['login.error.unknownUser']);
+        }
+        //utils.showAlertBanner(r === null ? individual.messages.serverError : ( r.response === false ? individual.messages['login.error.unknownUser'] : null ), false);
+        if (r === null || r.response === false) {
+            $('#ilw-username').focus();
+        } else {
+            utils.trackEvent({
+                eventName: 'Login',
+                eventType: 'Success',
+                individual: r.individual,
+                roles: r.roles
+            });
+
+            var statsJson = {
+                individualId: r.individual,
+                eventType: 'click',
+                eventName: 'login',
+                contextApp: $('#ilw-context-app').data('context-app')
+            };
+            writeStat(null, {
+                accountId: EBStat.accountId,
+                hostnameOverride: EBStat.host,
+                domain: EBStat.domain,
+                requestUrl: window.location.href,
+                hitCount: 1,
+                json: JSON.stringify(statsJson)
+            });
+
+            setTimeout(function () {
+                utils.setHrefForClose();
+            }, 1500);
+        }
+    };
+
+    return {
+        init: _init
+    };
+}();
+individual.loginbox = function() {
+
+    var _box;
+    var _errorMsg;
+    var _loginForm;
+
+    // ----------------------------------------------------------------------------------------------------------------
+    // --- Create login box elements in the DOM
+    // ----------------------------------------------------------------------------------------------------------------
+
+    var _init = function() {
+
+        // --- cache some elements
+
+        _box = $('#ilb-iframe-content');
+        _errorMsg = $('#ilb-error-msg');
+
+        //initialize the direction of text
+        utils.initTextDirection();
+
+        // init forms
+        var _submitUrl = '/login/in';
+        
+        _loginForm = new individual.form($('#ilb-content-login'), {
+            onSubmit: _submitLogin,
+            submitUrl: _submitUrl
+        });
+
+        _box.fadeIn('fast', function() { $('#ilb-username').focus(); }) ;
+    };
+
+    var setHrefForClose = function() {
+        var $landingPageUrlDiv;
+        if($("#ilw-landing-page-url")){
+            $landingPageUrlDiv = $("#ilw-landing-page-url");
+        }else{
+            $landingPageUrlDiv = $("#ilb-landing-page-url");
+        }
+        if ($landingPageUrlDiv.length > 0) {
+            parent.location.href =  $landingPageUrlDiv.data("landingPageUrl");
+        }
+        else {
+            // - impossible to simply refresh parent window (ex: window.opener.location.reload(), window.opener is null, because of different domains)
+            // - hence, parent URLs with hash (#) won't refresh ... such URLs should be handled at the context app, check B2
+            parent.location.href = individual.referrer;
+        }
+    };
+
+    // ----------------------------------------------------------------------------------------------------------------
+    // submit login form
+    // ----------------------------------------------------------------------------------------------------------------
+
+    var _submitLogin = function (r) {
+        if(typeof(r) == "undefined" || typeof(r.response) == 'undefined') {
+            r = null;
+        }
+        _errorMessage(r === null ? individual.messages.serverError : ( r.response === false ? individual.messages['login.error.unknownUser'] : null ));
+        if (r === null || r.response === false) {
+            $('#ilb-username').focus();
+        } else {
+            utils.trackEvent({
+                eventName: 'Login',
+                eventType: 'Success',
+                individual: r.individual,
+                roles: r.roles
+            });
+
+            var statsJson = {
+                individualId: r.individual,
+                eventType: 'click',
+                eventName: 'login',
+                contextApp: $('#ilb-context-app').data('context-app')
+            };
+            writeStat(null, {
+                accountId: EBStat.accountId,
+                hostnameOverride: EBStat.host,
+                domain: EBStat.domain,
+                requestUrl: window.location.href,
+                hitCount: 1,
+                json: JSON.stringify(statsJson)
+            });
+
+            setTimeout(function () {
+                setHrefForClose();
+            }, 1500);
+        }
+    };
+
+    // ----------------------------------------------------------------------------------------------------------------
+    // --- Display error message
+    // ----------------------------------------------------------------------------------------------------------------
+
+    var _errorMessage = function( msg ) {
+        if  (!msg) { _errorMsg.text('').hide(); }
+        else { _errorMsg.html( msg ).show(); }
+    };
+
+    // ----------------------------------------------------------------------------------------------------------------
+    // --- Public Methods
+    // ----------------------------------------------------------------------------------------------------------------
+
+    return {
+        init: _init
+    };
+}();
+
+
+utils = function(){
+
+    var initTextDirection = function() {
+        if(utils.shouldReverseTextDirection()){
+            $('#ilw-body-id').addClass('ilb-rtl');
+        }
+    }
+
+    var shouldReverseTextDirection = function() {
+        return utils.getQueryParameters().contextLocale == 'ar';
+    }
+
+    var getQueryParameters = function() {
+        return window.location.search
+            .replace(/(^\?)/,'')
+            .split("&")
+            .map(function (n) {
+                if (!n) return;
+                return n = n.split("="), this[n[0]] = n[1], this
+            }.bind({}))[0];
+    }
+
+    var clearValidationError = function( elt ) {
+        var controlGroupElt = $("#"+elt.attr('name')+"-control-grp");
+        var errorElt = $("#"+elt.attr('name')+"-error");
+        controlGroupElt.removeClass('error');
+        makeInvisible( errorElt );
+        errorElt.text("");
+    };
+
+    var showValidationError = function( elt, message ) {
+        var controlGroupElt = $("#"+elt.attr('name')+"-control-grp");
+        var errorElt = $("#"+elt.attr('name')+"-error");
+        controlGroupElt.addClass('error');
+        errorElt.addClass('ilw-show').removeClass('ilw-dont-show');
+        errorElt.text(message);
+    };
+
+    var forceHide = function( elt ) {
+        elt.addClass('ilw-display-none').removeClass('ilw-display-block');
+    };
+    var forceShow = function( elt ) {
+        elt.addClass('ilw-display-block').removeClass('ilw-display-none');
+    };
+
+    var makeVisible = function( elt ) {
+        elt.removeClass('ilw-dont-show').addClass('ilw-show');
+    };
+    var makeInvisible = function( elt ) {
+        elt.removeClass('ilw-show').addClass('ilw-dont-show');
+    };
+
+    var clearAlertBanner = function() {
+        var elt = $('#ilw-error-msg');
+        elt.text('');
+        utils.makeInvisible( elt );
+    }
+
+    var showAlertBanner = function( messasge, isSuccess ) {
+        if(messasge){
+            var elt = $('#ilw-error-msg');
+            elt.text( messasge );
+
+            if(isSuccess){
+                elt.removeClass('alert-error').removeClass('ilw-alert-error').addClass('alert-success').addClass('ilw-alert-success');
+            }else{
+                elt.removeClass('alert-success').removeClass('ilw-alert-success').addClass('alert-error').addClass('ilw-alert-error');
+            }
+            utils.makeVisible( elt );
+        }
+    }
+
+    var disableButtonAndShowLoading = function( buttonElement) {
+        $(".ilw-ajax-loading:visible").each(function (){ $(this).removeClass('ilw-dont-show').addClass('ilw-show'); });
+        //loadingElement.removeClass('ilw-dont-show').addClass('show');
+        buttonElement.prop('disabled', true);
+    }
+
+    var enableButtonAndHideLoading = function( buttonElement) {
+        $(".ilw-ajax-loading:visible").each(function (){ $(this).removeClass('ilw-show').addClass('ilw-dont-show'); });
+        //loadingElement.removeClass('show').addClass('ilw-dont-show');
+        buttonElement.prop('disabled', false);
+    }
+
+    var setHrefForClose = function() {
+        var $landingPageUrlDiv = $("#ilw-landing-page-url");
+        if ($landingPageUrlDiv.length > 0) {
+            var landingUrl = $landingPageUrlDiv.data("landingPageUrl");
+            var landingUrlParts = landingUrl.split('#');
+
+            if(landingUrlParts.length > 0) {
+                $.cookie('ilw-redirect-url', landingUrl,  { expires: 1, path: '/', domain: 'eb.com' });
+                parent.location.href = landingUrlParts[0];
+            }
+        }
+        else {
+            // - impossible to simply refresh parent window (ex: window.opener.location.reload(), window.opener is null, because of different domains)
+            // - hence, parent URLs with hash (#) won't refresh ... such URLs should be handled at the context app, check B2
+            parent.location.href = individual.referrer;
+        }
+    };
+
+	var _displayBubble = function (elt, message) {
+		var p = elt.position();
+        var b = $('#ilb-error-bubble');
+        b.html( message );
+        $('#ilb-error-bubble-wrapper').css( { top: p.top - b.height() - 10, left: p.left + elt.width() - 40, visibility: 'visible' } );
+        elt.focus();
+        //_bubbleVisible = true;
+    };
+    
+    var _hideBubble = function () {
+    	$('#ilb-error-bubble-wrapper').css( 'visibility', 'hidden' );
+        //_bubbleVisible = false;
+
+    };
+    
+    var _validateEmail = function(email) {
+        var re = /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+        return re.test(email);
+    };
+    var validatePassword = function(value) {
+        var unicodeRegex = XRegExp('^[\\pL\\pM]+$');
+        var otherLegalCharRegex = /[0-9-_!#$&"'()\*,./:;<=>?@\[\]\\^`\{\}|~%+]+/;
+        for (var x = 0, c= ''; c = value.charAt(x); x++){
+            if(!unicodeRegex.test(c) && !otherLegalCharRegex.test(c)){
+                return false;
+            }
+        }
+        return true;
+    };
+
+    var trackEvent = function(eventParams) {
+        if (eventParams) {
+            var clientApp = $('#ilb-context-app').data('context-app');
+            var $accountId =  $('#account-id');
+            var accountId;
+            if ($accountId) {
+                accountId = $accountId.data('account-id') || '';
+            }
+            // leave line below uncommented, because it will "magically" break the code below.
+            // var _gaq = _gaq || [];
+
+            try {
+                _gaq.push(['_setCustomVar', 1,'Client Application', clientApp, 2]);
+                if (typeof accountId === 'number') {
+                    _gaq.push(['_setCustomVar', 2,'Account', accountId.toString(), 2]);
+                }
+                if (eventParams.individual && (typeof eventParams.individual === 'number')) {
+                    _gaq.push(['_setCustomVar', 3,'Individual', eventParams.individual.toString(), 2]);
+                }
+                _gaq.push(['_setCustomVar', 4,'Roles', eventParams.roles, 2]);
+                _gaq.push(['_trackEvent', eventParams.eventName, eventParams.eventType]);
+
+            } catch (err){
+                // ignore _gaq not initialized error,
+            }
+        }
+    };
+
+    var getContextDomain = function() {
+        var $landingPageUrlDiv = $("#ilb-landing-page-url");
+        var result = "";
+        if ($landingPageUrlDiv.length > 0) {
+            var a = document.createElement('a');
+            a.href = $landingPageUrlDiv;
+            result = a.hostname;
+        }
+        return result;
+    };
+    
+    // --- Public Methods
+    return{
+    	displayBubble : _displayBubble,
+    	hideBubble: _hideBubble,
+    	validateEmail: _validateEmail,
+        trackEvent: trackEvent,
+        validatePassword: validatePassword,
+        getContextDomain: getContextDomain,
+        clearValidationError: clearValidationError,
+        showValidationError: showValidationError,
+        forceHide: forceHide,
+        forceShow: forceShow,
+        makeVisible: makeVisible,
+        makeInvisible: makeInvisible,
+        clearAlertBanner: clearAlertBanner,
+        showAlertBanner: showAlertBanner,
+        disableButtonAndShowLoading: disableButtonAndShowLoading,
+        enableButtonAndHideLoading: enableButtonAndHideLoading,
+        setHrefForClose: setHrefForClose,
+        getQueryParameters: getQueryParameters,
+        shouldReverseTextDirection: shouldReverseTextDirection,
+        initTextDirection: initTextDirection
+    };
+}();
+
+individual.utils = utils;
+
+
+
+individual.forgot_username_form2 = function($) {
+    var $forgotUsernameBox;
+    var _hasValidationErrors = false;
+
+    var _init = function() {
+        $forgotUsernameBox = $('#ilw-content-forgot-username');
+        //clearForm();
+        $("#ilw-forgot-username-email-submit").click(function() {
+            submitUsernameForgot();
+        } );
+    };
+
+    var _showValidationError = function( elt, message ){
+        _hasValidationErrors = true;
+        utils.showValidationError(elt, message);
+    };
+
+    // -----------
+    // submit "forgot username"
+    // -----------
+    var submitUsernameForgot = function() {
+
+        //clearMessages();
+        var data = {};
+        var $emailField = $('#ilw-forgot-username-email');
+        utils.clearValidationError( $emailField );
+        utils.clearAlertBanner();
+
+        var value = $.trim($emailField.val());
+
+        if (!value) {
+            _showValidationError($emailField, $emailField.attr('data-empty'));
+        }
+        else if (!utils.validateEmail(value)){
+            _showValidationError($emailField, individual.messages['login.signup.message.email.invalid']);
+        }
+        else {
+            _hasValidationErrors = false;
+            data = {
+                email: value,
+                contextLocale: $('#ilw-context-locale').data('context-locale')
+            };
+
+            $.ajax( '/emailExists', {
+                type: 'POST',
+                dataType: 'json',
+                data: data,
+                beforeSend: function () {
+                    //$('#ajax-forgot-username').show();
+                    utils.disableButtonAndShowLoading($(this));
+                },
+                complete: function(){
+                    //$('#ajax-forgot-username').hide();
+                    utils.enableButtonAndHideLoading($(this));
+                },
+                success:  function(result) {
+                    if(result.response == true){
+                        sendUsernameReminder(data);
+                    }
+                    else {
+                        //showError('msg-username-unknown-email');
+                        _showValidationError($emailField, individual.messages['login.forgot.unknown.email']);
+                    }
+                },
+                error: function() {
+                    utils.showAlertBanner(individual.messages['login.signup.service.down'], false);
+                }
+            });
+
+        }
+
+        var sendUsernameReminder = function(data) {
+            //sending email with username
+            $.ajax( '/remindUsername', {
+                type: 'POST',
+                dataType: 'json',
+                data: data,
+                beforeSend: function () {
+                    //$('#ajax-forgot-username').show();
+                    utils.disableButtonAndShowLoading($(this));
+                },
+                complete: function(){
+                    //$('#ajax-forgot-username').hide();
+                    utils.enableButtonAndHideLoading($(this));
+                },
+                success:  function(result) {
+                    if(result.response == true){
+                        //$('#username-email-submit-container').hide();
+                        //$('#ilb-username-reminder-success').show();
+                        /*$("#ilb-username-reminder-success-dismiss").click(function() {
+                            parent.location.href = individual.referrer;
+                        });*/
+                        utils.showAlertBanner(individual.messages['login.forgot.message.username.reminder.success'], true);
+                    }
+                    else {
+                        utils.showAlertBanner(individual.messages['login.signup.service.down'], false);
+                    }
+                },
+                error: function() {
+                    utils.showAlertBanner(individual.messages['login.signup.service.down'], false);
+                }
+            });
+        };
+
+        var showNoServiceErrorMessage = function() {
+            //showError('msg-username-no-service');
+        }
+    };
+
+    return {
+        init: _init
+    };
+
+}(jQuery);
+individual.forgot_username_form = function($) {
+    var $forgotUsernameBox;
+
+    var _init = function() {
+        $forgotUsernameBox = $('#ilb-content-forgot-username');
+        clearForm();
+
+        //initialize the direction of text
+        utils.initTextDirection();
+
+        $("#ilb-forgot-username-submit").click(function() {
+            submitUsernameForgot();
+        } );
+    };
+
+    var clearForm = function() {
+        $("#ilb-forgot-username-email").val("");
+        clearMessages();
+    };
+
+    var clearMessages = function() {
+        $('#msg-username-enter-email').hide();
+        $('.message').hide();
+        $forgotUsernameBox.children().removeClass('control-group error');
+    };
+
+    var showError = function(errorId) {
+        $forgotUsernameBox.find('#' + errorId).show().addClass('control-group error');
+    };
+
+    // -----------
+    // submit "forgot username"
+    // -----------
+    var submitUsernameForgot = function() {
+
+        clearMessages();
+
+        var data = {};
+        var $emailField = $('#ilb-forgot-username-email');
+        var value = $.trim($emailField.val());
+        if (!value) {
+            showError('msg-username-enter-email');
+        }
+        else if (!utils.validateEmail(value)){
+            showError('msg-username-invalid-email');
+        }
+        else {
+            data = {
+                email: value,
+		contextLocale: $('#ilb-context-locale').data('context-locale')
+            };
+
+            $.ajax( '/emailExists', {
+                type: 'POST',
+                dataType: 'json',
+                data: data,
+                beforeSend: function () {
+                    $('#ajax-forgot-username').show();
+                },
+                complete: function(){
+                    $('#ajax-forgot-username').hide();
+                },
+                success:  function(result) {
+                    if(result.response == true){
+                        sendUsernameReminder(data);
+                    }
+                    else {
+                        showError('msg-username-unknown-email');
+                    }
+                },
+                error: function() {
+                    showNoServiceErrorMessage();
+                }
+            });
+        }
+
+        var sendUsernameReminder = function(data) {
+            //sending email with username
+            $.ajax( '/remindUsername', {
+                type: 'POST',
+                dataType: 'json',
+                data: data,
+                beforeSend: function () {
+                    $('#ajax-forgot-username').show();
+                },
+                complete: function(){
+                    $('#ajax-forgot-username').hide();
+                },
+                success:  function(result) {
+                    if(result.response == true){
+                        $('#username-email-submit-container').hide();
+                        $('#ilb-username-reminder-success').show();
+                        $("#ilb-username-reminder-success-dismiss").click(function() {
+                            parent.location.href = individual.referrer;
+                        });
+                    }
+                    else {
+                        showNoServiceErrorMessage();
+                    }
+                },
+                error: function() {
+                    showNoServiceErrorMessage();
+                }
+            });
+        };
+
+        var showNoServiceErrorMessage = function() {
+            showError('msg-username-no-service');
+        }
+    };
+
+    return {
+        init: _init
+    };
+
+}(jQuery);
+
+
+
+individual.forgot_password_form2 = function($) {
+    //var $forgotPasswordBox;
+    var _hasValidationErrors = false;
+
+    var _init = function() {
+        //$forgotPasswordBox = $('#ilw-content-forgot-password');
+        $("#ilw-forgot-password-email-submit").click(function() {
+            submitPasswordForgot();
+        } );
+    };
+
+    var _showValidationError = function( elt, message ){
+        _hasValidationErrors = true;
+        utils.showValidationError(elt, message);
+    };
+
+    /*var clearForm = function() {
+        $("#ilb-forgot-password-email").val("");
+        clearMessages();
+    };
+
+    var clearMessages = function() {
+        $('#msg-enter-email').hide();
+        $('.message').hide();
+        $forgotPasswordBox.children().removeClass('control-group error');
+    };
+
+    var showError = function(errorId) {
+        $forgotPasswordBox.find('#' + errorId).show().addClass('control-group error');
+    };*/
+
+    // -----------
+    // submit "forgot password"
+    // -----------
+    var submitPasswordForgot = function() {
+
+        //clearMessages();
+
+        var data = {};
+        var $emailField = $('#ilw-forgot-password-email');
+        utils.clearValidationError( $emailField );
+        utils.clearAlertBanner();
+
+        var value = $.trim($emailField.val());
+
+        if (!value) {
+            //showError('msg-enter-email');
+            _showValidationError($emailField, $emailField.attr('data-empty'));
+        }
+        else if (!utils.validateEmail(value)){
+            //showError('msg-invalid-email');
+            _showValidationError($emailField, individual.messages['login.signup.message.email.invalid']);
+        }
+        else {
+            _hasValidationErrors = false;
+            data = {
+                email: value,
+                contextLocale: $('#ilw-context-locale').data('context-locale')
+            };
+            utils.disableButtonAndShowLoading($(this));
+            $.ajax( '/emailExists', {
+                type: 'POST',
+                dataType: 'json',
+                data: data,
+                beforeSend: function () {
+                    utils.disableButtonAndShowLoading($(this));
+                },
+                complete: function(){
+                    utils.enableButtonAndHideLoading($(this));
+                },
+                success:  function(result) {
+                    if(result.response == true){
+                        sendPasswordReset(data);
+                    }
+                    else {
+                        //showError('msg-unknown-email');
+                        _showValidationError($emailField, individual.messages['login.forgot.unknown.email']);
+                    }
+                },
+                error: function() {
+                    //showNoServiceErrorMessage();
+                    utils.showAlertBanner(individual.messages['login.signup.service.down'], false);
+                }
+            });
+        }
+
+        var sendPasswordReset = function(data) {
+            //sending email with password
+            $.ajax( '/resetPassword', {
+                type: 'POST',
+                dataType: 'json',
+                data: data,
+                beforeSend: function () {
+                    //$('#ajax-forgot-password').show();
+                    utils.disableButtonAndShowLoading($(this));
+                },
+                complete: function(){
+                    //$('#ajax-forgot-password').hide();
+                    utils.enableButtonAndHideLoading($(this));
+                },
+                success:  function(result) {
+                    if(result.response == true){
+                        //$('#email-submit-container').hide();
+                        //$('#ilb-reset-password-success').show();
+                        /*$("#ilb-reset-password-success-dismiss").click(function() {
+                            parent.location.href = individual.referrer;
+                        });*/
+                        utils.showAlertBanner(individual.messages['login.forgot.message.password.reset.success'], true);
+                    }
+                    else {
+                        //showNoServiceErrorMessage();
+                        //no service error
+                        utils.showAlertBanner(individual.messages['login.signup.service.down'], false);
+                    }
+                },
+                error: function() {
+                    //no service error
+                    utils.showAlertBanner(individual.messages['login.signup.service.down'], false);
+                }
+            });
+        };
+
+        var showNoServiceErrorMessage = function() {
+            //showError('msg-no-service');
+        }
+    };
+
+    return {
+        init: _init
+    };
+
+}(jQuery);
+individual.forgot_password_form = function($) {
+    var $forgotPasswordBox;
+	
+	var _init = function() {
+        $forgotPasswordBox = $('#ilb-content-forgot-password');
+        clearForm();
+        $("#ilb-forgot-password-submit").click(function() {
+            submitPasswordForgot();
+        } );
+	};
+
+    var clearForm = function() {
+        $("#ilb-forgot-password-email").val("");
+        clearMessages();
+    };
+
+    var clearMessages = function() {
+        $('#msg-enter-email').hide();
+        $('.message').hide();
+        $forgotPasswordBox.children().removeClass('control-group error');
+    };
+
+    var showError = function(errorId) {
+        $forgotPasswordBox.find('#' + errorId).show().addClass('control-group error');
+    };
+
+    // -----------
+    // submit "forgot password"
+    // -----------
+    var submitPasswordForgot = function() {
+
+        clearMessages();
+
+        var data = {};
+        var $emailField = $('#ilb-forgot-password-email');
+        var value = $.trim($emailField.val());
+        if (!value) {
+            showError('msg-enter-email');
+        }
+        else if (!utils.validateEmail(value)){
+            showError('msg-invalid-email');
+        }
+        else {
+            data = {
+                email: value,
+		        contextLocale: $('#ilb-context-locale').data('context-locale')
+            };
+
+            $.ajax( '/emailExists', {
+                type: 'POST',
+                dataType: 'json',
+                data: data,
+                beforeSend: function () {
+                    $('#ajax-forgot-password').show();
+                },
+                complete: function(){
+                    $('#ajax-forgot-password').hide();
+                },
+                success:  function(result) {
+                    if(result.response == true){
+                        sendPasswordReset(data);
+                    }
+                    else {
+                        showError('msg-unknown-email');
+                    }
+                },
+                error: function() {
+                    showNoServiceErrorMessage();
+                }
+            });
+        }
+
+        var sendPasswordReset = function(data) {
+            //sending email with password
+            $.ajax( '/resetPassword', {
+                type: 'POST',
+                dataType: 'json',
+                data: data,
+                beforeSend: function () {
+                    $('#ajax-forgot-password').show();
+                },
+                complete: function(){
+                    $('#ajax-forgot-password').hide();
+                },
+                success:  function(result) {
+                    if(result.response == true){
+                        $('#email-submit-container').hide();
+                        $('#ilb-reset-password-success').show();
+                        $("#ilb-reset-password-success-dismiss").click(function() {
+                            parent.location.href = individual.referrer;
+                        });
+                    }
+                    else {
+                        showNoServiceErrorMessage();
+                    }
+                },
+                error: function() {
+                    showNoServiceErrorMessage();
+                }
+            });
+        };
+
+        var showNoServiceErrorMessage = function() {
+            showError('msg-no-service');
+        }
+    };
+
+    return {
+    	init: _init
+    };
+    
+}(jQuery);
+
+
+individual.signup_form2 = function() {
+
+	var _init = function() {
+		//_clearForm();
+        $('div.required').each(function() {
+            $(this).children('.form-label').after('*');
+        });
+
+        var unicodeRegex = XRegExp('^[\\pL\\pM]+$');
+        var otherLegalCharRegex = /[0-9-_!#$&"'()\*,./:;<=>?@\[\]\\^`\{\}|~%+]+/;
+        var _isValidUnicode = function(value) {
+            for (var x = 0, c= ''; c = value.charAt(x); x++){
+                if(!unicodeRegex.test(c) && !otherLegalCharRegex.test(c)){
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        var _showValidationError = function( elt, message ){
+            _hasValidationErrors = true;
+            utils.showValidationError(elt, message);
+        };
+
+        var _showValidationErrorWithDivMessage = function( elt, divWithMessage ){
+            _hasValidationErrors = true;
+            utils.showValidationError(elt, $("#"+divWithMessage).text());
+        };
+
+		$("#ilw-signup-submit-button").click(function() {
+
+            utils.disableButtonAndShowLoading($(this));
+			//_clearMessages();
+            var emailRegex = /^([a-zA-Z0-9_\.\-\+])+\@(([a-zA-Z0-9\-])+\.)+([a-zA-Z0-9]{2,4})+$/;
+            var $firstnameField = $("#ilw-signup-firstname");
+            var firstname = $.trim($firstnameField.val());
+            var $lastnameField = $("#ilw-signup-lastname");
+            var lastname = $.trim($lastnameField.val());
+
+            var $usernameField = $("#ilw-signup-username");
+			var username = $.trim($usernameField.val());
+            var usernameLength = username.length;
+            var $passwordField = $("#ilw-signup-password");
+			var password = $.trim($passwordField.val());
+            var passwordLength = password.length;
+            var $emailField = $("#ilw-signup-email");
+			var email = $.trim($emailField.val());
+            var landingPageUrl = $("#ilw-landing-page-url").data("landingPageUrl");
+
+            var checkedRole = $('input[name=roleRadios]:checked').map(function() {
+                return this.value;
+            }).get();
+
+            var isValid = true;
+
+            utils.clearAlertBanner();
+            utils.clearValidationError( $firstnameField );
+            utils.clearValidationError( $lastnameField );
+            utils.clearValidationError( $usernameField );
+            utils.clearValidationError( $passwordField );
+            utils.clearValidationError( $emailField );
+
+			// make sure all required fields are non-empty
+			if(username === "" || password === "") {
+				if(username === ""){
+                    _showValidationError($usernameField, individual.messages['login.signup.message.field.required']);
+					//_showError("div-username", "msg-username-required");
+				}
+				if(password === ""){
+                    _showValidationError($passwordField, individual.messages['login.signup.message.field.required']);
+					//_showError("div-password", "msg-password-required");
+				}
+               isValid = false;
+			}
+
+            if(checkedRole == 'teacher'){
+                if (!email) {
+                    _showValidationError($emailField, individual.messages['login.signup.message.field.required']);
+                    isValid = false;
+                }
+            }
+
+            if (email && !email.match(emailRegex)) {
+                _showValidationError($emailField, individual.messages['login.signup.message.email.invalid']);
+                isValid = false;
+            }
+
+            if(!isValid){
+                utils.enableButtonAndHideLoading($(this));
+                return false;
+            }
+
+            if (usernameLength < $("#signup-username-control-grp").data("usernameMin")) {
+                _showValidationErrorWithDivMessage($usernameField, "msg-username-min");
+                //_showValidationError($usernameField, individual.messages['login.signup.message.username.below.min']);
+                //_showError("div-username", "msg-username-min");
+                isValid = false;
+            }
+			else if (usernameLength > $("#signup-username-control-grp").data("usernameMax")){
+                _showValidationErrorWithDivMessage($usernameField, "msg-username-max")
+                //_showValidationError($usernameField, $("#msg-username-max")individual.messages['login.signup.message.username.above.max']);
+				//_showError("div-username", "msg-username-max");
+				isValid = false;
+			}
+
+            if (passwordLength < $("#signup-password-control-grp").data("passwordMin")){
+                _showValidationErrorWithDivMessage($passwordField, "msg-password-min")
+                //_showValidationError($passwordField, individual.messages['login.signup.message.password.below.min']);
+                //_showError("div-password", "msg-password-min");
+                isValid = false;
+            }
+
+            else if (passwordLength > $("#signup-password-control-grp").data("passwordMax")){
+                _showValidationErrorWithDivMessage($passwordField, "msg-password-max")
+                //_showValidationError($passwordField, individual.messages['login.signup.message.password.above.max']);
+                //_showError("div-password", "msg-password-max");
+                isValid = false;
+            }
+
+            if(!_isValidUnicode(username)){
+                _showValidationError($usernameField, individual.messages['login.signup.message.username.invalid']);
+                //_showError("div-username", "msg-invalid-username");
+                isValid = false;
+            }
+
+            if(!_isValidUnicode(password)){
+                _showValidationError($passwordField, individual.messages['login.signup.message.password.invalid']);
+                //_showError("div-password", "msg-invalid-password");
+                isValid = false;
+            }
+
+            if(!isValid){
+                utils.enableButtonAndHideLoading($(this));
+            }
+
+			if(isValid === true){
+                var accountId = $("#account-id").data("accountId");
+				$.ajax( "/signup2", {
+		            type: 'POST',
+		            dataType: 'json',
+		            data: {
+                        firstName: firstname,
+                        lastName: lastname,
+                        username: username,
+                        password: password,
+                        role: checkedRole[0],
+                        email: email,
+                        signupCode: '',//code,
+                        accountId: accountId,
+                        contextDomain: utils.getContextDomain()
+		            },
+                    beforeSend: function () {
+                        utils.disableButtonAndShowLoading($("#ilw-signup-submit-button"));
+                    },
+                    complete: function(){
+                        utils.enableButtonAndHideLoading($("#ilw-signup-submit-button"));
+                    },
+		            success:  function(r) {
+                        var _closeIlwAfterTimeout = function(){
+                            return utils.setHrefForClose();
+                        }
+
+		            	if(r.result == true){
+                            utils.showAlertBanner( individual.messages['login.signup.label.success.hooray'] + " " + individual.messages['login.signup.label.success'], true);
+
+                            utils.trackEvent({
+                                eventName: 'Signup',
+                                eventType: 'Success',
+                                individual: r.individual,
+                                roles: r.roles
+                            });
+
+                            var statsJson = {
+                                individualId: r.individual,
+                                eventType: 'click',
+                                eventName: 'signup',
+                                contextApp: $('#ilw-context-app').data('context-app')
+                            };
+                            writeStat(null, {
+                                accountId: EBStat.accountId,
+                                hostnameOverride: EBStat.host,
+                                domain: EBStat.domain,
+                                requestUrl: window.location.href,
+                                hitCount: 1,
+                                json: JSON.stringify(statsJson)
+                            });
+
+                            setTimeout(function () {
+                                _closeIlwAfterTimeout();
+                            }, 5000);
+
+                        } else {
+                            //utils.enableButtonAndHideLoading($(this));
+                            var allGood = true;
+                            if (r.usernameExists === true) {
+                                _showValidationError($usernameField, individual.messages['login.signup.message.username.exists']);
+                                allGood = false;
+                                //_showError("div-username", "msg-exists");
+                            }
+                            if (r.emailAlreadyRegistered === true) {
+                                _showValidationError($emailField, individual.messages['login.signup.message.email.exists']);
+                                allGood = false;
+                                //_showError("div-email", "msg-email-exists");
+                            }
+                            if(r.emailMissingForTeacher === true){
+                                _showValidationError($emailField, individual.messages['login.signup.message.field.required']);
+                                allGood = false;
+                            }
+                            if(allGood){
+                                utils.showAlertBanner( individual.messages['login.signup.label.success.hooray'] + " " + individual.messages['login.signup.label.success'], true);
+                                setTimeout(function () {
+                                    _closeIlwAfterTimeout();
+                                }, 5000);
+                            }
+                        }
+	            	},
+		            error: function() {
+                       // utils.enableButtonAndHideLoading($(this));
+                        utils.showAlertBanner(individual.messages['login.signup.service.down'], false);
+	        		}
+		        });
+			}
+		});
+	};
+
+    return {
+    	init: _init
+    };
+}();
+individual.signup_form = function() {
+    var numErrors = 0;
+    var maxErrors = 2;
+
+    var _init = function() {
+        _clearForm();
+
+        //initialize the direction of text
+        utils.initTextDirection();
+
+        $('div.required').each(function() {
+            $(this).children('.form-label').after('*');
+        });
+
+        var unicodeRegex = XRegExp('^[\\pL\\pM]+$');
+        var otherLegalCharRegex = /[0-9-_!#$&"'()\*,./:;<=>?@\[\]\\^`\{\}|~%+]+/;
+        var _isValidUnicode = function(value) {
+            for (var x = 0, c= ''; c = value.charAt(x); x++){
+                if(!unicodeRegex.test(c) && !otherLegalCharRegex.test(c)){
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        $("#ilb-signup-submit").click(function() {
+            _clearMessages();
+            var emailRegex = /^([a-zA-Z0-9_\.\-\+])+\@(([a-zA-Z0-9\-])+\.)+([a-zA-Z0-9]{2,4})+$/;
+            var $usernameField = $("#ilb-signup-username");
+            var username = $.trim($usernameField.val());
+            var usernameLength = username.length;
+            var $passwordField = $("#ilb-signup-password");
+            var password = $.trim($passwordField.val());
+            var passwordLength = password.length;
+            var $passwordRepeatField = $("#ilb-signup-password-repeat");
+            var passwordRepeat = $.trim($passwordRepeatField.val());
+            var $emailField = $("#ilb-signup-email");
+            var email = $.trim($emailField.val());
+            var $emailRepeatField = $("#ilb-signup-email-repeat");
+            var emailRepeat = $.trim($emailRepeatField.val());
+            var $codeField = $("#ilb-signup-code");
+            var code = $.trim($codeField.val());
+            var landingPageUrl = $("#ilb-landing-page-url").data("landingPageUrl");
+
+            var isValid = true;
+
+            // make sure all required fields are non-empty
+            if(username === "" || password === "") {
+                if(username === ""){
+                    _showError("div-username", "msg-username-required");
+                }
+                if(password === ""){
+                    _showError("div-password", "msg-password-required");
+                }
+
+                return false;
+            }
+            if (code !== "") {
+                if (email === "") {
+                    _showError("div-email", "msg-email-required");
+                    return false;
+                }
+            }
+            if (usernameLength < $("#div-username").data("usernameMin")) {
+                _showError("div-username", "msg-username-min");
+                isValid = false;
+            }
+            else if (usernameLength > $("#div-username").data("usernameMax")){
+                _showError("div-username", "msg-username-max");
+                isValid = false;
+            }
+
+            if(!_isValidUnicode(username)){
+                _showError("div-username", "msg-invalid-username");
+                isValid = false;
+            }
+
+            if (passwordLength < $("#div-password").data("passwordMin")){
+                _showError("div-password", "msg-password-min");
+                isValid = false;
+            }
+
+            else if (passwordLength > $("#div-password").data("passwordMax")){
+                _showError("div-password", "msg-password-max");
+                isValid = false;
+            }
+
+            if(!_isValidUnicode(password)){
+                _showError("div-password", "msg-invalid-password");
+                isValid = false;
+            }
+
+
+            if(email !== emailRepeat){
+                _showError("div-email-repeat", "msg-email-equals");
+                isValid = false;
+            }
+
+            if (email && email.length > 0 && !email.match(emailRegex)) {
+                _showError("div-email", "msg-email-invalid");
+                isValid = false;
+            }
+
+            if (password !== passwordRepeat) {
+                _showError("div-password-repeat", "msg-password-equals");
+                isValid = false;
+            }
+
+            if(isValid === true){
+                var accountId = $("#account-id").data("accountId");
+                $.ajax( "/signup", {
+                    type: 'POST',
+                    dataType: 'json',
+                    data: {	username: username,
+                        password: password,
+                        email: email,
+                        signupCode: code,
+                        accountId: accountId,
+                        contextDomain: utils.getContextDomain()
+                    },
+                    success:  function(r) {
+                        if(r.result == true){
+                            $("#ilb-content-signup").hide();
+                            $("#ilb-content-signup-success").show();
+
+                            var onDismissClick = function() {
+                                $("#ilb-signup-success-dismiss").click(function() {
+                                    var $landingPageUrlDiv = $("#ilb-landing-page-url");
+                                    if ($landingPageUrlDiv.length > 0) {
+                                        parent.location.href =  $landingPageUrlDiv.data("landingPageUrl");
+                                    }
+                                    else {
+                                        parent.location.href = individual.referrer;
+                                    }
+                                });
+                            };
+
+                            utils.trackEvent({
+                                eventName: 'Signup',
+                                eventType: 'Success',
+                                individual: r.individual,
+                                roles: r.roles
+                            });
+
+                            var statsJson = {
+                                individualId: r.individual,
+                                eventType: 'click',
+                                eventName: 'signup',
+                                contextApp: $('#ilb-context-app').data('context-app')
+                            };
+                            writeStat(null, {
+                                accountId: EBStat.accountId,
+                                hostnameOverride: EBStat.host,
+                                domain: EBStat.domain,
+                                requestUrl: window.location.href,
+                                hitCount: 1,
+                                json: JSON.stringify(statsJson)
+                            });
+
+                            setTimeout(function () {
+                                onDismissClick();
+                            }, 1500);
+
+                        } else {
+                            if (r.codeMatches === false) {
+                                _showError("div-code", "msg-invalid-code");
+                            }
+                            if (r.usernameExists === true) {
+                                _showError("div-username", "msg-exists");
+                            }
+                            if (r.emailAlreadyRegistered === true) {
+                                _showError("div-email", "msg-email-exists");
+                            }
+                        }
+                    },
+                    error: function() {
+                        _showError("div-service-down", "msg-service-down");
+                    }
+                });
+            }
+        });
+    };
+
+    var _clearForm = function() {
+        $('#ilb-error-msg').val("");
+        $("#ilb-signup-username").val("");
+        $("#ilb-signup-password").val("");
+        $("#ilb-signup-password-repeat").val("");
+        $("#ilb-signup-email").val("");
+        $("#ilb-signup-email-repeat").val("");
+        $("#ilb-signup-code").val("");
+        _clearMessages();
+    };
+
+    var _clearMessages = function() {
+        numErrors = 0;
+        $('#ilb-error-msg').hide();
+        $(".message").hide();
+        $("#ilb-content-signup").children().removeClass("control-group error");
+    };
+
+    var _showError = function(divName, errorId) {
+        numErrors += 1;
+        if (numErrors <= maxErrors) {
+            $("#" + divName).find("#" + errorId).show();
+            $("#" + divName).addClass("control-group error");
+        }
+    };
+
+    return {
+        init: _init
+    };
+}();
+//Password reset instructions sent to the e-mail address you provided
+
+// --------------------------------------------------------------------------------------------------------------------
+// a form object to avoid duplicated code between forms
+// --------------------------------------------------------------------------------------------------------------------
+
+individual.form2 = function( element, params ) {
+    
+    var _element;
+    var _submitButton;
+    var _hasValidationErrors = false;
+    var _cancelButton;
+    var _bubbleVisible;
+    var _ajaxLoading;
+    var _params;
+    var _fields;
+    var _buttons;
+    var _bubble;
+    var _form;
+
+    // -------------
+    // --- Init form
+    // -------------
+
+    var _init = function( element, params ) {
+
+        _element = element;
+        //_form = element.find('form');
+        _params = params;
+        _bubble = $('#ilw-error-bubble-wrapper');
+        _bubbleVisible = false;
+
+        // buttons
+
+        //_buttons = element.find('.ilb-button');
+        _submitButton = $('#ilw-submit-button');
+        //_ajaxLoading = element.find('.ilw-ajax-loading');
+
+        // text fields
+
+        var submitKbd = function( e ) {
+            var k = e.keyCode;
+            if ( k === 13 ) { _submit(); return false; }
+            else if ( _bubbleVisible) { _hideBubble(); }
+        };
+
+        _fields = element.find('.ilw-text-field').keyup( submitKbd );
+
+        /*if ($.browser.msie) {
+            _fields.focus( function() { $(this).addClass('ilb-text-field-focus'); } ).blur( function() { $(this).removeClass('ilb-text-field-focus'); } );
+        }*/
+
+        // click on submit
+        _submitButton.click( function() { if (! _submitButton.hasClass('ilw-disabled')) { _submit(); } } );
+
+        // click on forgot username / password links
+        $('#ilw-forgot-username-link').click( function(){
+            _clearAllValidationErrors();
+            $(".ilw-reason-dont-have-account").hide();
+            utils.forceHide( $("#ilw-content-signin") );
+            utils.forceHide( $("#ilw-content-forgot-password") );
+            utils.forceHide( $("#ilw-content-signup") );
+            utils.forceShow( $("#ilw-content-forgot-username") );
+            utils.forceHide( $("#ilw-create-account-link-p") );
+            utils.forceHide( $("#ilw-goto-signin-link-p") );
+            return false;
+        });
+
+        $('#ilw-forgot-password-link').click( function(){
+            _clearAllValidationErrors();
+            //$(".ilw-reason-dont-have-account").hide();
+            utils.forceHide( $("#ilw-content-signin") );
+            utils.forceHide( $("#ilw-content-forgot-username") );
+            utils.forceHide( $("#ilw-content-signup") );
+            utils.forceHide( $("#ilw-create-account-link-p") );
+            utils.forceHide( $("#ilw-goto-signin-link-p") );
+            utils.forceShow( $("#ilw-content-forgot-password") );
+            return false;
+        });
+
+        //goto to signup from signin page
+        $('#ilw-create-account-link').click( function(){
+            _clearAllValidationErrors();
+            //$("#ilw-goto-signin-link-p").show();
+            utils.forceShow( $("#ilw-goto-signin-link-p") );
+            utils.forceHide( $("#ilw-content-signin") );
+            utils.forceHide( $("#ilw-content-forgot-username") );
+            utils.forceHide( $("#ilw-content-forgot-password") );
+            utils.forceShow( $("#ilw-content-signup") );
+            utils.forceHide( $("#ilw-create-account-link-p") );
+            //$("#ilw-create-account-link-p").hide();
+            individual.signup_form2.init();
+            return false;
+        });
+
+        //goto to signin from signup page
+        $('#ilw-goto-signin-link').click( function(){
+            _clearAllValidationErrors();
+            //$("#ilw-create-account-link-p").show();
+            utils.forceHide( $("#ilw-content-forgot-username") );
+            utils.forceHide( $("#ilw-content-forgot-password") );
+            utils.forceHide( $("#ilw-content-signup") );
+            utils.forceShow( $("#ilw-content-signin") );
+            utils.forceShow( $("#ilw-create-account-link-p") );
+            utils.forceHide( $("#ilw-goto-signin-link-p") );
+            //$("#ilw-goto-signin-link-p").hide();
+            return false;
+        });
+
+
+
+
+
+        individual.forgot_username_form2.init();
+        individual.forgot_password_form2.init();
+    };
+
+    // -----------
+    // submit form
+    // -----------
+
+    var _submit = function() {
+
+        _clearAllValidationErrors();
+
+        var data = {};
+
+        for (var i = 0; i < _fields.length; i++) {
+            var field = $(_fields[i]);
+            var value = $.trim(field.val());
+            if (value === '') {
+                _showValidationError(field, field.attr('data-empty'));
+            } else {
+                data[ field.attr('name')] = value;
+            }
+        }
+
+        _startSubmit(true);
+
+        if(!_hasValidationErrors){
+            utils.disableButtonAndShowLoading(_submitButton);
+            $.ajax( _params.submitUrl, {
+                type: 'POST',
+                dataType: 'json',
+                data: data,
+                success:  function(response) {
+                    utils.enableButtonAndHideLoading(_submitButton);
+                    _params.onSubmit(response);
+                },
+                error: function() {
+                    utils.enableButtonAndHideLoading(_submitButton);
+                    _params.onSubmit();
+                }
+            });
+        }
+
+    };
+
+    var _showValidationError = function( elt, message ){
+        _hasValidationErrors = true;
+        utils.showValidationError(elt, message);
+    };
+
+    var _startSubmit = function( v ) {
+        //if ( v ) {  _buttons.addClass('ilb-disabled'); _ajaxLoading.show(); }
+        //else { _buttons.removeClass('ilb-disabled'); _ajaxLoading.hide(); }
+    };
+
+    // --- Display/Hide bubble
+
+    var _clearAllValidationErrors = function() {
+        _hasValidationErrors = false;
+
+        utils.clearAlertBanner();
+
+        for (var i = 0; i < _fields.length; i++) {
+            utils.clearValidationError( $(_fields[i]) );
+        }
+    };
+
+
+
+    _init( element, params );
+};
+individual.form = function( element, params ) {
+
+    var _element;
+    var _submitButton;
+    var _cancelButton;
+    var _bubbleVisible;
+    var _ajaxLoading;
+    var _params;
+    var _fields;
+    var _buttons;
+    var _bubble;
+    var _form;
+    
+    // -------------
+    // --- Init form
+    // -------------
+
+    var _init = function( element, params ) {
+
+        _element = element;
+        _form = element.find('form');
+        _params = params;
+        _bubble = $('#ilb-error-bubble-wrapper');
+        _bubbleVisible = false;
+
+        // buttons
+
+        _buttons = element.find('.ilb-button');
+        _submitButton = element.find('.ilb-submit-button');
+        _cancelButton = element.find('.ilb-cancel-button');
+        _ajaxLoading = element.find('.ilb-ajax-loading');
+        if (!_cancelButton[0]) { _cancelButton = null; }
+
+        // text fields
+
+        var submitKbd = function( e ) {
+            var k = e.keyCode;
+            if ( k === 13 ) { _submit(); return false; }
+            else if ( _bubbleVisible) { _hideBubble(); }
+        };
+        
+        _fields = element.find('.ilb-text-field').keyup( submitKbd );
+
+        if ($.browser.msie) {
+            _fields.focus( function() { $(this).addClass('ilb-text-field-focus'); } ).blur( function() { $(this).removeClass('ilb-text-field-focus'); } );
+        }
+
+        // click on cancel / submit
+        if ( _cancelButton ) { _cancelButton.click( function() { if (!_cancelButton.hasClass('ilb-disabled')) { params.onCancel(); } } ); }
+        _submitButton.click( function() { if (! _submitButton.hasClass('ilb-disabled')) { _submit(); } } );
+        
+        // click on forgot username / password links
+        $('#ilb-forgot-username-link').click( function(){
+        	$("#ilb-content-login").hide();
+        	$("#ilb-content-forgot-username").show();
+        	return false;
+    	});
+        $('#ilb-forgot-password-link').click( function(){
+        	$("#ilb-content-login").hide();
+            $('#ilb-content-forgot-password').show();
+        	return false;
+    	});
+        
+        individual.forgot_username_form.init();
+        individual.forgot_password_form.init();
+        
+        // b2 stuff
+        $('#ilb-signup-link').click( function(){
+        	$("#ilb-content-login").hide();
+        	$("#ilb-content-signup").show();
+        	
+        	individual.signup_form.init();
+        	return false;
+    	});
+
+        $('.back-to-login-link').click(function () {
+            $("#ilb-content-signup").hide();
+            $("#ilb-content-login").show();
+
+            return false;
+        });
+    };
+    
+    // -----------
+    // submit form
+    // -----------
+
+    var _submit = function() {
+
+        var data = {};
+
+        for (var i = 0; i < _fields.length; i++) {
+            var field = $(_fields[i]);
+            var value = $.trim(field.val());
+            if (value === '') {
+                _displayBubble(field, field.attr('data-empty'));
+                return;
+            } else {
+                data[ field.attr('name')] = value;
+            }
+        }
+
+        _startSubmit(true);
+
+        $.ajax( _params.submitUrl, {
+            type: 'POST',
+            dataType: 'json',
+            data: data,
+            success:  function(response) {
+                _startSubmit(false);
+                _params.onSubmit(response);
+            },
+            error: function() {
+                _startSubmit(false);
+                _params.onSubmit();
+            }
+        });
+    };
+
+    var _startSubmit = function( v ) {
+        if ( v ) {  _buttons.addClass('ilb-disabled'); _ajaxLoading.show(); }
+        else { _buttons.removeClass('ilb-disabled'); _ajaxLoading.hide(); }
+    };
+
+    // --- Display/Hide bubble
+
+    var _displayBubble = function( elt, message ) {
+        var p = elt.position();
+        var b = $('#ilb-error-bubble');
+        b.html( message );
+        _bubble.css( { top: p.top - b.height() - 10, left: p.left + elt.width() - 40, visibility: 'visible' } );
+        elt.focus();
+        _bubbleVisible = true;
+    };
+
+    var _hideBubble = function() {
+        _bubble.css( 'visibility', 'hidden' );
+        _bubbleVisible = false;
+    };
+
+    // ------------------
+    // --- Public Methods
+    // ------------------
+
+    this.clear = function() {
+        for ( var i = 0; i < _fields.length; i++ ) {  $(_fields[i]).val(''); }
+        _startSubmit( false );
+        _hideBubble();
+    };
+
+    this.clearErrorMessages = function() {
+        _hideBubble();
+    };
+
+    _init( element, params );
+};
+
+
+individual = window.individual || {};
+individual.resetPassword = (function ($) {
+    "use strict";
+
+
+
+    var init = function() {
+
+        var $submitButton = $("#password-reset-submit");
+        var $password = $('#inputPassword');
+        var $repeatPassword = $('#repeatPassword');
+
+        $submitButton.prop('disabled', true);
+
+        $(':input[type="password"]').on('keyup', function(){
+            var password = $.trim($password.val());
+            var repeatPassword = $.trim($repeatPassword.val());
+
+            if (password && repeatPassword) {
+                $submitButton.prop('disabled', false);
+            }
+            else {
+                $submitButton.prop('disabled', true);
+            }
+        });
+
+        $('#credentials').submit(function(e) {
+            var passwordsMatch = false;
+            var isValidLength = false;
+            var allCharactersValid = false;
+            var $passwordResetContainer = $('#password-reset-container');
+            var passwordLengthMessage = $passwordResetContainer.data('password-length');
+            var passwordMismatchMessage = $passwordResetContainer.data('password-mismatch-message');
+            var invalidCharactersMessage = $passwordResetContainer.data('invalid-characters-message');
+            var $resetPassword = $('#ilw-reset-password');
+            var minSize = parseInt($resetPassword.data('password-length-min'), 10);
+            var maxSize = parseInt($resetPassword.data('password-length-max'), 10);
+            var $validationErrorContainer = $('#validation-error');
+            var $passwordDirectionsContainer = $('password-directions');
+            var message = '';
+
+            var password = $password.val();
+            var repeatPassword = $repeatPassword.val();
+
+            if (password && repeatPassword) {
+                isValidLength = ((password.length >= minSize) &&
+                    (password.length <= maxSize));
+            }
+            if (!isValidLength) {
+                message = passwordLengthMessage;
+            }
+
+            passwordsMatch = password === repeatPassword;
+            if (!message && !passwordsMatch) {
+                message = passwordMismatchMessage;
+            }
+
+            allCharactersValid = individual.utils.validatePassword(password);
+            if (!message && !allCharactersValid) {
+                message = invalidCharactersMessage;
+            }
+
+            if (message) {
+                $validationErrorContainer.text(message).removeClass('hidden').addClass('alert alert-error');
+                $passwordDirectionsContainer.addClass('hidden');
+            }
+            else {
+                $validationErrorContainer.text(message).removeClass('alert alert-error').addClass('hidden');
+                $passwordDirectionsContainer.removeClass('hidden');
+            }
+
+            return isValidLength && passwordsMatch && allCharactersValid;
+        });
+    }
+
+    return {
+        init: init
+    }
+}(jQuery));
